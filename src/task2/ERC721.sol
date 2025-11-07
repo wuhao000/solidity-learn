@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
+import {IERC721} from "../../lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import {IERC721Metadata} from "../../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IERC721Receiver} from "../../lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC721Errors} from "../../lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {IERC165} from "../../lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 
+contract ERC721 is IERC721Metadata {
+    string public override name;
 
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.0.2/contracts/token/ERC721/IERC721.sol";
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.0.2/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.0.2/contracts/token/ERC721/IERC721Receiver.sol";
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.0.2/contracts/interfaces/draft-IERC6093.sol";
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v5.0.2/contracts/utils/introspection/IERC165.sol";
-
-contract ERC721 is IERC721, IERC721Metadata {
-
-    string override public name;
-
-    string override public symbol;
+    string public override symbol;
 
     mapping(uint256 => address) private _owners;
 
@@ -35,7 +32,7 @@ contract ERC721 is IERC721, IERC721Metadata {
     /**
      * @dev Returns the number of tokens in ``owner``'s account.
      */
-    function balanceOf(address owner) external override view returns (uint256 balance) {
+    function balanceOf(address owner) external view override returns (uint256 balance) {
         return _balances[owner];
     }
 
@@ -46,7 +43,7 @@ contract ERC721 is IERC721, IERC721Metadata {
      *
      * - `tokenId` must exist.
      */
-    function ownerOf(uint256 tokenId) public override view returns (address owner) {
+    function ownerOf(uint256 tokenId) public view override returns (address owner) {
         owner = _owners[tokenId];
         require(owner != address(0), "token doesn't exist");
     }
@@ -180,7 +177,7 @@ contract ERC721 is IERC721, IERC721Metadata {
      *
      * - `tokenId` must exist.
      */
-    function getApproved(uint256 tokenId) public override view returns (address operator) {
+    function getApproved(uint256 tokenId) public view override returns (address operator) {
         require(_owners[tokenId] != address(0), "token does not exists");
         return _tokenApprovals[tokenId];
     }
@@ -190,15 +187,15 @@ contract ERC721 is IERC721, IERC721Metadata {
      *
      * See {setApprovalForAll}
      */
-    function isApprovedForAll(address owner, address operator) public override view returns (bool) {
+    function isApprovedForAll(address owner, address operator) public view override returns (bool) {
         return _operatorApprovals[owner][operator];
     }
 
-    function supportsInterface(bytes4 interfaceId) external override pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC721).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
-    function mintNFT(address owner, string memory tokenURIStr) external returns(uint256) {
+    function mintNft(address owner, string memory tokenURIStr) external returns (uint256) {
         idCounter++;
         assert(_owners[idCounter] == address(0));
         _mint(owner, idCounter);
@@ -207,7 +204,7 @@ contract ERC721 is IERC721, IERC721Metadata {
         return idCounter;
     }
 
-    function tokenURI(uint256 tokenId) public override view returns(string memory) {
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_owners[tokenId] != address(0), "uri not exists");
         return _uriMapping[tokenId];
     }
@@ -236,5 +233,4 @@ contract ERC721 is IERC721, IERC721Metadata {
             }
         }
     }
-
 }
