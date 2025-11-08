@@ -2,9 +2,10 @@
 pragma solidity ^0.8.21;
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {OnlyOwner} from "../utils/OnlyOwner.sol";
 
 
-contract ERC20 is IERC20 {
+contract ERC20 is IERC20, OnlyOwner {
 
     mapping(address => uint256) public override balanceOf;
 
@@ -16,11 +17,11 @@ contract ERC20 is IERC20 {
 
     string public symbol;
 
-
     constructor(string memory _name, string memory _symbol) {
         name = _name;
         symbol = _symbol;
     }
+
 
     /**
        * @dev 转账 `amount` 单位代币，从调用者账户到另一账户 `to`.
@@ -68,13 +69,13 @@ contract ERC20 is IERC20 {
         return true;
     }
 
-    function mint(uint amount) public {
+    function mint(uint amount) public onlyOwner {
         balanceOf[msg.sender] += amount;
         totalSupply += amount;
         emit Transfer(address(0), msg.sender, amount);
     }
 
-    function burn(uint amount) public {
+    function burn(uint amount) public onlyOwner {
         balanceOf[msg.sender] -= amount;
         totalSupply -= amount;
         emit Transfer(msg.sender, address(0), amount);

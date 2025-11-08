@@ -4,8 +4,15 @@ pragma solidity ^0.8;
 import {ERC721} from "../task2/ERC721.sol";
 import {Strings} from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import {AggregatorV3Interface} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+//import {ReentrancyGuard} from "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {IAuction} from './IAuction.sol';
 
-contract Auction {
+contract Auction is IAuction {
+
+    address public override implementation;
+    address public override admin;
+
+
     AggregatorV3Interface internal dataFeed;
     using Strings for uint256;
     ERC721 public nft;
@@ -14,6 +21,11 @@ contract Auction {
      * NFT是否已上架
      */
     mapping(uint256 => bool) public shelf;
+
+    /**
+     * NFT => 上架者（原NFT持有人，上架后转给合约，下架需转还给原持有人）
+     */
+    mapping(uint256 => address) private _sellers;
 
     /**
      * tokenId => 最高出价者
@@ -42,29 +54,10 @@ contract Auction {
      */
     bool public started = true;
 
-    /**
-     * 退款事件
-     */
-    event Refund(address target, uint256 amount);
-
-    /**
-     * 退款失败事件
-     */
-    event RefundFailed(address target, uint256 amount);
-
-    /**
-     * 新出价
-     *
-     * @param tokenId NFT
-     * @param addr 出价者
-     * @param amount 出价（ETH）
-     */
-    event NewBid(uint256 tokenId, address addr, uint256 amount);
-
-    constructor(address nftAddr) {
+    constructor(address nftAddr, address owner) {
         dataFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
         nft = ERC721(nftAddr);
-        _owner = msg.sender;
+        _owner = owner;
     }
 
     modifier onlyOwner() {
@@ -98,17 +91,18 @@ contract Auction {
                 return 0;
             }
             uint256 tokenId = _onShelf[_onShelf.length - 1];
-            address tokenOwner = nft.ownerOf(tokenId);
-            _winFunds[tokenOwner] = _maxBids[tokenId];
+            address oldOwner = _sellers[tokenId];
+            address newOwner = _bids[tokenId];
+            _winFunds[oldOwner] = _maxBids[tokenId];
+            nft.safeTransferFrom(address(this), newOwner, tokenId);
             delete _bids[tokenId];
             delete _maxBids[tokenId];
-            nft.safeTransferFrom(address(this), _bids[tokenId], tokenId);
             _onShelf.pop();
         }
         return _onShelf.length;
     }
 
-    function withdraw() external payable {
+    function withdraw() external {
         require(_winFunds[msg.sender] > 0, "no funds.");
         uint256 val = _winFunds[msg.sender];
         _winFunds[msg.sender] = 0;
@@ -136,26 +130,30 @@ contract Auction {
     }
 
     /**
-     * 上架拍卖
+     * 上架拍卖, 需提前授权nft给当前合约
      */
     function onShelf(uint256 tokenId) external isStarted {
         require(nft.ownerOf(tokenId) == msg.sender, "not owner");
         require(shelf[tokenId] == false, "already on shelf");
         shelf[tokenId] = true;
         _onShelf.push(tokenId);
+        _sellers[tokenId] = msg.sender;
+        nft.safeTransferFrom(msg.sender, address(this), tokenId);
     }
 
     function removeFromShelf(uint256 tokenId) external isStarted {
         require(shelf[tokenId], "not on shelf");
-        require(nft.ownerOf(tokenId) == msg.sender, "not owner");
+        require(_sellers[tokenId] == msg.sender, "not owner");
+        _sellers[tokenId] = address(0);
         shelf[tokenId] = false;
-        for (uint8 i = 0; i < _onShelf.length; i++) {
+        for (uint256 i = 0; i < _onShelf.length; i++) {
             if (_onShelf[i] == tokenId) {
                 _onShelf[i] = _onShelf[_onShelf.length - 1];
                 _onShelf.pop();
                 break;
             }
         }
+        nft.safeTransferFrom(address(this), msg.sender, tokenId);
     }
 
     /**
@@ -165,19 +163,20 @@ contract Auction {
         address oldBidder = _bids[tokenId];
         require(shelf[tokenId], "not on shelf");
         require(oldBidder != msg.sender, "current highest bid is still your's");
-        uint256 maxPrice = _maxBids[tokenId];
-        (int256 price, uint8 decimal) = getChainlinkDataFeedLatestAnswer();
-        require(price > 0, "need price > 0");
-        // forge-lint: disable-next-line(unsafe-typecast)
-        uint256 usd = maxPrice * uint256(price) / (10 ** (18 + decimal));
+        uint256 oldMaxBid = _maxBids[tokenId];
+//        (int256 price, uint8 decimal) = getChainlinkDataFeedLatestAnswer();
+//        require(price > 0, "need price > 0");
+//        // forge-lint: disable-next-line(unsafe-typecast)
+//        uint256 usd = oldMaxBid * uint256(price) / (10 ** (18 + decimal));
         require(
             msg.value > _maxBids[tokenId],
-            string.concat("current highest bid is ", uint256(usd).toString(), " usd, Your bid must be higher.")
+            "Your bid is lower than the highest bid."
         );
         _maxBids[tokenId] = msg.value;
         _bids[tokenId] = msg.sender;
+        // 如果新的出价大于之前的出价（之前的出价不为0），则需要将之前的出价退款
         if (oldBidder != address(0) && _maxBids[tokenId] > 0) {
-            (bool success,) = oldBidder.call{value: _maxBids[tokenId]}("");
+            (bool success,) = oldBidder.call{value: oldMaxBid}("");
             require(success, "Refund failed");
         }
         emit NewBid(tokenId, msg.sender, msg.value);
