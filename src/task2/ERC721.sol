@@ -70,7 +70,7 @@ contract ERC721 is IERC721Metadata {
 
     function _safeTransfer(address owner, address from, address to, uint256 tokenId, bytes memory data) private {
         _transfer(owner, from, to, tokenId);
-        _checkOnERC721Received(from, to, tokenId, data);
+        _checkOnErc721Received(from, to, tokenId, data);
     }
 
     /**
@@ -200,7 +200,7 @@ contract ERC721 is IERC721Metadata {
         assert(_owners[idCounter] == address(0));
         _mint(owner, idCounter);
         _uriMapping[idCounter] = tokenURIStr;
-        _checkOnERC721Received(address(0), owner, idCounter, "");
+        _checkOnErc721Received(address(0), owner, idCounter, "");
         return idCounter;
     }
 
@@ -215,11 +215,11 @@ contract ERC721 is IERC721Metadata {
         emit Transfer(address(0), owner, tokenId);
     }
 
-    function _checkOnERC721Received(address operator, address to, uint256 tokenId, bytes memory data) private {
+    function _checkOnErc721Received(address operator, address to, uint256 tokenId, bytes memory data) private {
         // 如果接收地址是一个合约的话，必须实现IERC721Receiver接口，否则一旦NTF接收后，有可能永远也无法被转出
         if (to.code.length > 0) {
-            try IERC721Receiver(to).onERC721Received(msg.sender, operator, tokenId, data) returns (bytes4 retval) {
-                if (retval != IERC721Receiver.onERC721Received.selector) {
+            try IERC721Receiver(to).onERC721Received(msg.sender, operator, tokenId, data) returns (bytes4 retVal) {
+                if (retVal != IERC721Receiver.onERC721Received.selector) {
                     revert IERC721Errors.ERC721InvalidReceiver(to);
                 }
             } catch (bytes memory reason) {

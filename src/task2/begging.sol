@@ -21,8 +21,12 @@ contract BeggingContract {
     }
 
     modifier isOnlyOwner() {
-        require(msg.sender == _owner, "Only owner can do this");
+        _isOnlyOwner();
         _;
+    }
+
+    function _isOnlyOwner() internal view {
+        require(msg.sender == _owner, "Only owner can do this");
     }
 
     function _canDonate() private view returns (bool) {
