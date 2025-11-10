@@ -11,9 +11,14 @@ contract AuctionFactory {
         _owner = msg.sender;
     }
 
-    function initialize(address nftAddr) external returns (address) {
+    function initialize(
+        address nftAddr,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 priceDropInterval
+    ) external returns (address) {
         require(msg.sender == _owner, "not owner");
-        Auction auction = new Auction(nftAddr, _owner);
+        Auction auction = new Auction(nftAddr, _owner, startTime, endTime, priceDropInterval);
         return address(auction);
     }
 
