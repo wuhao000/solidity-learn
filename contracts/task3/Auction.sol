@@ -13,17 +13,43 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
+    using Strings for uint256;
+    using SafeERC20 for IERC20;
+
     uint256 constant MAX_FEE_PERCENT = 500;
 
     uint256 constant MIN_FEE_PERCENT = 100;
 
-    using SafeERC20 for IERC20;
 
     address public override implementation;
     address public override admin;
 
-    using Strings for uint256;
     ERC721 public nft;
+    /**
+     * 拍卖开始时间
+     */
+    uint256 public startTime;
+    /**
+     * 拍卖结束时间
+     */
+    uint256 public endTime;
+
+    /**
+     * 价格衰减时间间隔（秒）
+     */
+    uint256 public priceDropInterval;
+    /**
+     * 合约所有者
+     */
+    address public owner;
+
+
+    /**
+     * 从开始时间到结束时间的衰减次数
+     */
+    uint256 public dropTimes;
+
+    uint256 private _feePercentDropPerTime;
 
     /**
      * 拍卖品信息
@@ -37,27 +63,6 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      */
     uint256[] private _onShelf;
 
-    /**
-     * 合约所有者
-     */
-    address private _owner;
-    /**
-     * 拍卖开始时间
-     */
-    uint256 public startTime;
-    /**
-     * 拍卖结束时间
-     */
-    uint256 public endTime;
-    /**
-     * 价格衰减时间间隔（秒）
-     */
-    uint256 public priceDropInterval;
-
-    /**
-     * 从开始时间到结束时间的衰减次数
-     */
-    uint256 private _dropTimes;
 
     /**
      * 代币 => 代币到usd的汇率预言机地址
@@ -69,28 +74,15 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      */
     mapping(TokenType => address) private _tokenContractAddress;
 
-    uint256 private _feePercentDropPerTime;
 
     // 仅用于测试的函数
     bool public testMode;
     address public mockFeedAddress;
 
-    /**
-     *
-     * @param _priceDropInterval 价格衰减的时间间隔（秒）
-     */
-    constructor(address nftAddr, address owner, uint256 _startTime, uint256 _endTime, uint256 _priceDropInterval) {
-        nft = ERC721(nftAddr);
-        _owner = owner;
-        admin = owner; // 设置管理员为owner
-        startTime = _startTime;
-        endTime = _endTime;
-        priceDropInterval = _priceDropInterval;
-        _dropTimes = (_endTime - _startTime) / _priceDropInterval;
+    constructor() {
         _feedsAddress[TokenType.DAI] = 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19;
         _feedsAddress[TokenType.ETH] = 0x694AA1769357215DE4FAC081bf1f309aDC325306;
         _tokenContractAddress[TokenType.DAI] = 0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6;
-        _feePercentDropPerTime = (MAX_FEE_PERCENT - MIN_FEE_PERCENT) / _dropTimes;
     }
 
     modifier onlyOwner() {
@@ -98,8 +90,12 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
         _;
     }
 
+    function version() public pure returns (uint256) {
+        return 2;
+    }
+
     function _onlyOwner() internal view {
-        require(msg.sender == _owner, "not owner");
+        require(msg.sender == owner, "not owner");
     }
 
     modifier isStarted() {
@@ -219,7 +215,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
         require(shelf[tokenId].owner == address(0), "already on shelf");
         require(maxPrice >= minPrice, "max price less than min price");
         _onShelf.push(tokenId);
-        uint256 dropPerTime = (maxPrice - minPrice) / _dropTimes;
+        uint256 dropPerTime = (maxPrice - minPrice) / dropTimes;
         shelf[tokenId] =
             AuctionInfo({maxPrice: maxPrice, minPrice: minPrice, dropPerTime: dropPerTime, owner: msg.sender});
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
@@ -266,7 +262,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
         uint256 fee = _getFee(tokenValue);
         uint256 received = tokenValue - fee;
         _winFunds[info.owner][tokenSymbol] += received;
-        _winFunds[_owner][tokenSymbol] = fee;
+        _winFunds[owner][tokenSymbol] = fee;
         if (tokenSymbol != TokenType.ETH) {
             address addr = _tokenContractAddress[tokenSymbol];
             require(addr != address(0), "Token not supported");
@@ -287,7 +283,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      * 动态手续费，从5%-1%随时间衰减
      */
 
-    function _getFee(uint256 currentPrice) internal view returns(uint256) {
+    function _getFee(uint256 currentPrice) internal view returns (uint256) {
         uint256 percentage = MAX_FEE_PERCENT;
         if (block.timestamp >= startTime) {
             uint256 elapsed = (block.timestamp - startTime) / priceDropInterval;
@@ -305,7 +301,11 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      * IERC721Receiver接口实现，允许接收NFT
      */
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
-        external pure override returns (bytes4) {
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC721Receiver.onERC721Received.selector;
     }
 }

@@ -57,3 +57,4 @@ lib/
 
 # Hardhat specific
 hardhat.config.js.backup
+.deps/

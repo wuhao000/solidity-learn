@@ -1,25 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {Auction} from './Auction.sol';
+import {AuctionProxy} from "./AuctionProxy.sol";
 
 contract AuctionFactory {
 
     address private _owner;
+
+    uint256 public auctionId;
+
+    mapping(uint256 => address) public auctions;
 
     constructor() {
         _owner = msg.sender;
     }
 
     function initialize(
+        address auctionAddr,
         address nftAddr,
         uint256 startTime,
         uint256 endTime,
         uint256 priceDropInterval
-    ) external returns (address) {
+    ) external returns (address, uint256) {
+        auctionId++;
         require(msg.sender == _owner, "not owner");
-        Auction auction = new Auction(nftAddr, _owner, startTime, endTime, priceDropInterval);
-        return address(auction);
+        AuctionProxy auction = new AuctionProxy(auctionAddr, _owner, nftAddr, startTime, endTime, priceDropInterval);
+        address addr = address(auction);
+        auctions[auctionId] = addr;
+        return (addr, auctionId);
     }
 
 }
