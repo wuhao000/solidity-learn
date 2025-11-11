@@ -8,19 +8,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IAuction, AuctionInfo, TokenType} from "./IAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable, Initializable {
+contract Auction is IAuction, ReentrancyGuard, ERC721Holder, UUPSUpgradeable, Initializable {
     using Strings for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 constant MAX_FEE_PERCENT = 500;
+    uint256 constant public MAX_FEE_PERCENT = 500;
 
-    uint256 constant MIN_FEE_PERCENT = 100;
+    uint256 constant public MIN_FEE_PERCENT = 100;
 
     address public override implementation;
     address public override admin;
@@ -72,10 +72,6 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable,
      * 代币的erc20合约地址
      */
     mapping(TokenType => address) private _tokenContractAddress;
-
-    // 仅用于测试的函数
-    bool public testMode;
-    address public mockFeedAddress;
 
     constructor() {
         _disableInitializers();
@@ -163,7 +159,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable,
         }
     }
 
-    function _authorizeUpgrade(address newImplementation) internal {
+    function _authorizeUpgrade(address newImplementation) internal override {
         require(msg.sender == admin);
         implementation = newImplementation;
     }
@@ -194,11 +190,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable,
     function getChainlinkDataFeedLatestAnswer(TokenType symbol) public view returns (int256, uint8, uint256, uint256) {
         address feedAddress;
 
-        if (testMode) {
-            feedAddress = mockFeedAddress;
-        } else {
-            feedAddress = _feedsAddress[symbol];
-        }
+        feedAddress = _feedsAddress[symbol];
 
         AggregatorV3Interface dataFeed = AggregatorV3Interface(feedAddress);
         uint8 decimal = dataFeed.decimals();
@@ -212,15 +204,6 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable,
             /*uint80 answeredInRound*/
         ) = dataFeed.latestRoundData();
         return (answer, decimal, startedAt, updatedAt);
-    }
-
-    /**
-     * 仅用于测试：设置测试模式和Mock预言机地址
-     */
-    function setTestMode(bool _testMode, address _mockFeedAddress) external {
-        require(msg.sender == admin, "only admin");
-        testMode = _testMode;
-        mockFeedAddress = _mockFeedAddress;
     }
 
     /**
@@ -313,15 +296,4 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable,
         return currentPrice * percentage / 10000;
     }
 
-    /**
-     * IERC721Receiver接口实现，允许接收NFT
-     */
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
-        external
-        pure
-        override
-        returns (bytes4)
-    {
-        return IERC721Receiver.onERC721Received.selector;
-    }
 }

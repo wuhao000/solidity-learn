@@ -45,7 +45,7 @@ interface IAuction {
      * @dev 结束拍卖
      * @return 剩余未处理的拍卖品的数量
      */
-    function end() external payable returns (uint256);
+    function end(uint256 limit) external payable returns (uint256);
 
     /**
      * @dev 提取获胜资金
@@ -88,5 +88,5 @@ interface IAuction {
         uint256 _startTime,
         uint256 _endTime,
         uint256 _priceDropInterval
-    ) public virtual;
+    ) external;
 }

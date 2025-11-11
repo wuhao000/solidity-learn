@@ -6,15 +6,12 @@ import {ERC721} from "../task2/ERC721.sol";
 import {Auction} from "./Auction.sol";
 
 contract AuctionProxy is Proxy {
-    uint256 public constant MAX_FEE_PERCENT = 500;
-
-    uint256 public constant MIN_FEE_PERCENT = 100;
 
     address public implementation;
     address public admin;
 
-    constructor(address _implementation) {
-        implementation = _implementation;
+    constructor(address _impl) {
+        implementation = _impl;
     }
 
     function _implementation() internal view override returns (address) {
