@@ -2,7 +2,8 @@
 pragma solidity ^0.8;
 
 import {ERC721} from "../task2/ERC721.sol";
-import {AggregatorV3Interface} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 struct AuctionInfo {
     // 美元

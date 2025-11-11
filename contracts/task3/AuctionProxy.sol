@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {Proxy} from  '../../lib/openzeppelin-contracts/contracts/proxy/Proxy.sol';
+import {Proxy} from "@openzeppelin/contracts/proxy/Proxy.sol";
 
 
 contract AuctionProxy is Proxy {
