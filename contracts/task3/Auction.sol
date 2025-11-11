@@ -9,17 +9,18 @@ import {IAuction, AuctionInfo, TokenType} from "./IAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
+contract Auction is IAuction, ReentrancyGuard, IERC721Receiver, UUPSUpgradeable, Initializable {
     using Strings for uint256;
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_FEE_PERCENT = 500;
 
     uint256 constant MIN_FEE_PERCENT = 100;
-
 
     address public override implementation;
     address public override admin;
@@ -43,7 +44,6 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      */
     address public owner;
 
-
     /**
      * 从开始时间到结束时间的衰减次数
      */
@@ -63,7 +63,6 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      */
     uint256[] private _onShelf;
 
-
     /**
      * 代币 => 代币到usd的汇率预言机地址
      */
@@ -74,12 +73,31 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      */
     mapping(TokenType => address) private _tokenContractAddress;
 
-
     // 仅用于测试的函数
     bool public testMode;
     address public mockFeedAddress;
 
     constructor() {
+        _disableInitializers();
+    }
+
+    // 初始化函数，代替构造函数
+    function initialize(
+        address _admin,
+        address nftAddr,
+        uint256 _startTime,
+        uint256 _endTime,
+        uint256 _priceDropInterval
+    ) public initializer {
+        admin = _admin;
+        owner = _admin;
+        nft = ERC721(nftAddr);
+        admin = owner; // 设置管理员为owner
+        startTime = _startTime;
+        endTime = _endTime;
+        priceDropInterval = _priceDropInterval;
+        dropTimes = (_endTime - _startTime) / _priceDropInterval;
+        _feePercentDropPerTime = (MAX_FEE_PERCENT - MIN_FEE_PERCENT) / dropTimes;
         _feedsAddress[TokenType.DAI] = 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19;
         _feedsAddress[TokenType.ETH] = 0x694AA1769357215DE4FAC081bf1f309aDC325306;
         _tokenContractAddress[TokenType.DAI] = 0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6;
@@ -111,11 +129,11 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
      * 结束拍卖
      * @return 剩余未处理的拍卖品的数量
      */
-    function end() external payable onlyOwner returns (uint256) {
+    function end(uint256 limit) external payable onlyOwner returns (uint256) {
+        require(limit > 0 && limit <= 20, "limit should between 1-20");
         require(block.timestamp > endTime, "not reach the end time");
         require(_onShelf.length > 0, "all handled.");
-        // 每次调用最多处理10笔，防止gas超出导致永远无法提取
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < limit; i++) {
             if (_onShelf.length == 0) {
                 return 0;
             }
@@ -145,9 +163,7 @@ contract Auction is IAuction, ReentrancyGuard, IERC721Receiver {
         }
     }
 
-    // 升级函数，改变逻辑合约地址，只能由admin调用。选择器：0x0900f010
-    // UUPS中，逻辑函数中必须包含升级函数，不然就不能再升级了。
-    function upgrade(address newImplementation) external {
+    function _authorizeUpgrade(address newImplementation) internal {
         require(msg.sender == admin);
         implementation = newImplementation;
     }

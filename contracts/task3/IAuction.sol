@@ -15,14 +15,16 @@ struct AuctionInfo {
     address owner;
 }
 
-enum TokenType {ETH, DAI}
+enum TokenType {
+    ETH,
+    DAI
+}
 
 /**
  * @title IAuction
  * @dev Auction合约的接口
  */
 interface IAuction {
-
     /**
      * @dev 获取实现合约地址
      */
@@ -55,9 +57,10 @@ interface IAuction {
      * @return answer 价格答案
      * @return decimal 小数位数
      */
-    function getChainlinkDataFeedLatestAnswer(
-        TokenType symbol
-    ) external view returns (int256 answer, uint8 decimal, uint256 createdAt, uint256 updatedAt);
+    function getChainlinkDataFeedLatestAnswer(TokenType symbol)
+        external
+        view
+        returns (int256 answer, uint8 decimal, uint256 createdAt, uint256 updatedAt);
 
     /**
      * @dev 上架NFT进行拍卖
@@ -79,4 +82,11 @@ interface IAuction {
      */
     function bid(uint256 tokenId) external payable;
 
+    function initialize(
+        address _admin,
+        address nftAddr,
+        uint256 _startTime,
+        uint256 _endTime,
+        uint256 _priceDropInterval
+    ) public virtual;
 }
