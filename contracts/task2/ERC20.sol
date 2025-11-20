@@ -30,7 +30,8 @@ contract ERC20 is IERC20, OnlyOwner {
      *
      * 释放 {Transfer} 事件.
      */
-    function transfer(address to, uint256 amount) external returns (bool) {
+    function transfer(address to, uint256 amount) public virtual returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "over balance.");
         balanceOf[msg.sender] -= amount;
         balanceOf[to] += amount;
         emit Transfer(msg.sender, to, amount);
@@ -61,7 +62,9 @@ contract ERC20 is IERC20, OnlyOwner {
         address from,
         address to,
         uint256 amount
-    ) external returns (bool) {
+    ) public virtual returns (bool) {
+        require(allowance[from][msg.sender] >= amount, "over allowance limit");
+        require(balanceOf[from] >= amount, "over account balance");
         allowance[from][msg.sender] -= amount;
         balanceOf[from] -= amount;
         balanceOf[to] += amount;

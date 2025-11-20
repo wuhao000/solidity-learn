@@ -17,7 +17,7 @@ contract OnlyOwner {
         _;
     }
 
-    function _onlyOwner() internal {
+    function _onlyOwner() internal view {
         require(_owner == msg.sender, "not owner");
     }
 
